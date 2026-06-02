@@ -13,7 +13,7 @@ El proyecto está dividido en módulos que separan la interfaz de usuario, la l�
 ### Historial de Desarrollo (Módulo `Legacy/`)
 *Esta carpeta almacena los scripts independientes utilizados durante la fase de investigación y pruebas antes de la unificación del sistema:*
 * **`Legacy/setup.py`:** Primera versión de la estructura de la base de datos.
-* **`Legacy/idk.py`:** Script de mantenimiento utilizado para sincronizar, normalizar y redondear a un decimal las calificaciones de las películas consumiendo la API de TMDB.
+* **`Legacy/notas.py`:** Script de mantenimiento utilizado para sincronizar, normalizar y redondear a un decimal las calificaciones de las películas consumiendo la API de TMDB.
 * **`Legacy/posters.py`:** Script auxiliar que añade de forma masiva los enlaces URL de los pósters oficiales de las imágenes de TMDB a los registros existentes.
 * **`Legacy/reparto.py`:** Script de migración estructural que altera la base de datos para inyectar de forma segura las columnas de `reparto` y `director`.
 * **`Legacy/app.py`:** Una API intermedia desarrollada con **Flask** para servir los datos en formato JSON. Quedó obsoleta al conectar Streamlit de forma directa y nativa a la lógica de `database.py`.
