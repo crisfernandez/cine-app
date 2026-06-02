@@ -7,8 +7,8 @@ El proyecto está dividido en módulos que separan la interfaz de usuario, la l�
 * **`database.py`:** Gestiona la base de datos, la IA y las recomendaciones mediante una serie de funciones.
 
 ### Gestión de Base de Datos (Módulo `database/`)
-* **`database/setup.py`:** Script de inicialización. Se encarga de borrar versiones corruptas previas y crear la estructura limpia de la tabla `peliculas` en SQLite (`cine.db`), definiendo las columnas necesarias (título, género, sinopsis, póster, puntuación, año).
-* **`database/importar_pelis.py`:** Conecta de forma masiva con la API de **TMDB**, recorre múltiples páginas por género, extrae los datos principales de las películas y se conecta a la sección de créditos para obtener el director y el reparto principal. Cuenta con lógica de actualización para evitar duplicados.
+* **`setup.py`:** Script de inicialización. Se encarga de borrar versiones corruptas previas y crear la estructura limpia de la tabla `peliculas` en SQLite (`cine.db`), definiendo las columnas necesarias (título, género, sinopsis, póster, puntuación, año).
+* **`importar_pelis.py`:** Conecta de forma masiva con la API de **TMDB**, recorre múltiples páginas por género, extrae los datos principales de las películas y se conecta a la sección de créditos para obtener el director y el reparto principal. Cuenta con lógica de actualización para evitar duplicados.
 
 ### Historial de Desarrollo (Módulo `Legacy/`)
 *Esta carpeta almacena los scripts independientes utilizados durante la fase de investigación y pruebas antes de la unificación del sistema:*
