@@ -1,0 +1,7 @@
+streamlit
+crewai
+crewai[tools]
+google-genai
+langchain-google-genai
+scikit-learn
+crewai_tools[sqlalchemy]
