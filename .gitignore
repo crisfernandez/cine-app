@@ -1,0 +1,11 @@
+# Ocultar las claves privadas
+.env
+
+# Ocultar la base de datos local (pesa mucho y se genera en local)
+*.db
+cine.db
+
+# Ocultar archivos temporales de Python y VS Code
+__pycache__/
+.vscode/
+*.pyc
