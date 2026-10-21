@@ -4,7 +4,7 @@ services:
     ports:
       - "8501:8501"
     environment:
-      - GOOGLE_API_KEY=AIzaSyCukj0-d2-dG44wWF78tWH9CoTgGkZpsVM
+      - GOOGLE_API_KEY: ${GEMINI_API_KEY}
       - GEMINI_API_VERSION=v1
     volumes:
       - .:/app  # Esto permite que si cambias el código, se vea en el contenedor
