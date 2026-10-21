@@ -7,5 +7,5 @@ services:
       - GOOGLE_API_KEY: ${GEMINI_API_KEY}
       - GEMINI_API_VERSION=v1
     volumes:
-      - .:/app  # Esto permite que si cambias el código, se vea en el contenedor
+      - .:/app  
     restart: always
