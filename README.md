@@ -1,10 +1,18 @@
 ## Estructura del Proyecto y Descripción de Archivos
 
-El proyecto está dividido en módulos que separan la interfaz de usuario, la lógica de los agentes de IA y los scripts de mantenimiento de datos:
+El proyecto está dividido en capas: la interfaz (Streamlit) habla con una API interna (Flask), que a su vez consume la lógica de negocio (`services/`) y los agentes de IA (`agents/`):
 
 ### Interfaz y Lógica Principal
-* **`interface.py`:** El punto de entrada de la aplicación. Gestiona la interfaz gráfica interactiva con **Streamlit**, captura las entradas de texto con las preferencias de los usuarios y muestra el veredicto final de la mediación en tiempo real.
-* **`database.py`:** Gestiona la base de datos, la IA y las recomendaciones mediante una serie de funciones.
+* **`interface.py`:** El punto de entrada de la aplicación. Gestiona la interfaz gráfica interactiva con **Streamlit** y consume la API Flask interna vía HTTP (`API_BASE_URL`, por defecto `http://localhost:5000`).
+* **`app.py`:** API interna con **Flask** (puerto 5000). Expone los endpoints de películas, recomendaciones y agentes que la interfaz utiliza.
+* **`run.py`:** Lanzador único que arranca la API Flask y la interfaz Streamlit a la vez (`python run.py`).
+
+### Lógica de Negocio y Agentes
+* **`services/movies.py`:** Toda la lógica de películas: búsqueda en SQLite, datos de TMDB y recomendaciones con scikit-learn (ML).
+* **`agents/`:** Agentes de IA con **CrewAI**:
+  * `mood.py`: agente de recomendación emocional (pestaña Mood AI).
+  * `negotiator.py`: agentes de la negociación entre dos personas (pestaña Negociador).
+  * `tools.py`: herramienta SQL que usan los agentes para consultar la base de datos.
 
 ### Gestión de Base de Datos 
 * **`setup.py`:** Script de inicialización. Se encarga de borrar versiones corruptas previas y crear la estructura limpia de la tabla `peliculas` en SQLite (`cine.db`), definiendo las columnas necesarias (título, género, sinopsis, póster, puntuación, año).
@@ -19,6 +27,6 @@ El proyecto está dividido en módulos que separan la interfaz de usuario, la l�
 * **`Legacy/app.py`:** Una API intermedia desarrollada con **Flask** para servir los datos en formato JSON. Quedó obsoleta al conectar Streamlit de forma directa y nativa a la lógica de `database.py`.
 
 ### Infraestructura y Despliegue
-* **`Dockerfile`:** Define la receta de construcción del contenedor de Docker (imagen base de Python, instalación de dependencias y exposición de puertos).
+* **`Dockerfile`:** Define la receta de construcción del contenedor de Docker (imagen base de Python, instalación de dependencias y exposición de puertos). El `CMD` ejecuta `run.py`.
 * **`docker-compose.yml`:** Gestiona el arranque automatizado de los contenedores locales para aislar el entorno de desarrollo con un solo comando.
 

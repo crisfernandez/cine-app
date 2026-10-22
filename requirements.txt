@@ -1,4 +1,8 @@
 streamlit
+flask
+python-dotenv
+requests
+pandas
 crewai
 crewai[tools]
 google-genai

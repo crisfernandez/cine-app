@@ -1,10 +1,37 @@
 import os
+
+import requests
 from dotenv import load_dotenv
 import streamlit as st
-import requests
-import database
 
 load_dotenv()
+
+API_BASE = os.getenv("API_BASE_URL", "http://localhost:5000")
+TIMEOUT_AGENTES = 600
+
+
+def pedir_detalles(id_tmdb):
+    res = requests.get(f"{API_BASE}/api/peliculas/{id_tmdb}/detalles", timeout=TIMEOUT_AGENTES)
+    res.raise_for_status()
+    return res.json()
+
+
+def pedir_similares(id_tmdb):
+    res = requests.get(f"{API_BASE}/api/peliculas/{id_tmdb}/similares", timeout=TIMEOUT_AGENTES)
+    res.raise_for_status()
+    return res.json()
+
+
+def pedir_agente_mood(texto):
+    try:
+        res = requests.post(f"{API_BASE}/api/agentes/mood", json={"texto": texto}, timeout=TIMEOUT_AGENTES)
+        res.raise_for_status()
+        return res.json().get("respuesta", "")
+    except Exception as e:
+        return f"La IA está descansando un momento... (Error: {e})"
+
+# st.set_page_config debe ser la PRIMERA llamada de Streamlit del script
+st.set_page_config(page_title="MovieAI Pro", page_icon="🍿", layout="wide")
 
 # 1. CONFIGURACIÓN Y DIÁLOGO
 
@@ -12,12 +39,12 @@ load_dotenv()
 def mostrar_detalle(peli):
     with st.spinner("Buscando disponibilidad en España..."):
         try:
-            TOKEN_TMDB = os.getenv("TMDB_TOKEN")
-            # Esta función de tu database.py debe devolver las plataformas
-            director_api, reparto_api, plataformas = database.obtener_info_extra_api(peli['id_tmdb'], TOKEN_TMDB)
-            _, _, plataformas = database.obtener_info_extra_api(peli['id_tmdb'], TOKEN_TMDB)
+            info = pedir_detalles(peli['id_tmdb'])
+            director_api = info.get("director")
+            reparto_api = info.get("actores")
+            plataformas = info.get("plataformas")
         except Exception:
-            plataformas = []
+            director_api, reparto_api, plataformas = None, None, []
     col1, col2 = st.columns([1, 1.5])
     
     with col1:
@@ -76,7 +103,7 @@ def mostrar_detalle(peli):
     
     # Llamamos a la función de ML
     with st.spinner("Buscando películas con tramas similares..."):
-        similares = database.obtener_recomendaciones_ml(peli['id_tmdb'])
+        similares = pedir_similares(peli['id_tmdb'])
     
     if similares:
         # Creamos tantas columnas como pelis devuelva el modelo (máximo 3)
@@ -104,7 +131,6 @@ if "peliculas_tab1" not in st.session_state:
 
 # 2. CONFIGURACIÓN DE PÁGINA Y ESTILOS
 GENEROS_CONFIG = {"Acción": 28, "Drama": 18, "Animación": 16, "Ciencia Ficción": 878, "Terror": 27, "Romance": 10749, "Thriller": 53, "Fantasía": 14, "Crimen": 80, "Comedia": 35}
-st.set_page_config(page_title="MovieAI Pro", page_icon="🍿", layout="wide")
 
 st.markdown("""
     <style>
@@ -310,7 +336,8 @@ st.write("")
 # LÓGICA DE BÚSQUEDA GLOBAL
 if boton_buscar:
     termino_final = busqueda_libre.strip() if busqueda_libre.strip() else genero_seleccionado
-    st.session_state.peliculas_tab1 = database.filtrar_por_genero(termino_final)
+    res = requests.get(f"{API_BASE}/api/peliculas", params={"termino": termino_final}, timeout=60)
+    st.session_state.peliculas_tab1 = res.json()
     # Guardamos en sesión que acabamos de hacer una búsqueda activa
     st.session_state.busqueda_activa_global = True
     st.rerun()
@@ -446,7 +473,12 @@ with tab2:
             if submitted:
                 st.session_state.puntero_salto = 0
                 with st.spinner("Anclando preferencias y secuenciando ADN..."):
-                    raw_recos = database.obtener_recomendaciones_pro([g1, g2, g3], [f1, f2, f3, f4, f5], salto=0)
+                    res = requests.post(
+                        f"{API_BASE}/api/recomendaciones",
+                        json={"generos": [g1, g2, g3], "favoritos": [f1, f2, f3, f4, f5], "salto": 0},
+                        timeout=60,
+                    )
+                    raw_recos = res.json()
                     vistas = [f1.lower().strip(), f2.lower().strip(), f3.lower().strip(), f4.lower().strip(), f5.lower().strip()]
                     st.session_state.recomendaciones = [p for p in raw_recos if p['titulo'].lower().strip() not in vistas]
                 st.rerun()
@@ -496,10 +528,12 @@ with tab2:
             st.write("")
             if st.button("MOSTRAR OTRAS OPCIONES", width='stretch'):
                 with st.spinner("Cambiando el carrete de proyección..."):
-                    st.session_state.recomendaciones = database.obtener_recomendaciones_pro(
-                        [g1, g2, g3], 
-                        [f1, f2, f3, f4, f5]
+                    res = requests.post(
+                        f"{API_BASE}/api/recomendaciones",
+                        json={"generos": [g1, g2, g3], "favoritos": [f1, f2, f3, f4, f5]},
+                        timeout=60,
                     )
+                    st.session_state.recomendaciones = res.json()
                 st.rerun()
                     
 
@@ -633,31 +667,31 @@ with tab3:
             if st.button("CARGAR 01", key="mb1", width='stretch'):
                 st.session_state.mood_texto = "He tenido un día agotador. Necesito algo ligero, divertido y que no me haga pensar mucho."
                 with st.spinner("Conectando con el Agente..."):
-                    st.session_state.mood_respuesta = database.obtener_recomendacion_agente(st.session_state.mood_texto)
+                    st.session_state.mood_respuesta = pedir_agente_mood(st.session_state.mood_texto)
                 st.rerun()
         with c2:
             if st.button("CARGAR 02", key="mb2", width='stretch'):
                 st.session_state.mood_texto = "¡Me siento genial! Quiero una comedia desternillante o una peli feel-good que me haga reír."
                 with st.spinner("Conectando con el Agente..."):
-                    st.session_state.mood_respuesta = database.obtener_recomendacion_agente(st.session_state.mood_texto)
+                    st.session_state.mood_respuesta = pedir_agente_mood(st.session_state.mood_texto)
                 st.rerun()
         with c3:
             if st.button("CARGAR 03", key="mb3", width='stretch'):
                 st.session_state.mood_texto = "Me siento melancólico y algo nostálgico. Busco un drama profundo, pausado y con mucha atmósfera."
                 with st.spinner("Conectando con el Agente..."):
-                    st.session_state.mood_respuesta = database.obtener_recomendacion_agente(st.session_state.mood_texto)
+                    st.session_state.mood_respuesta = pedir_agente_mood(st.session_state.mood_texto)
                 st.rerun()
         with c4:
             if st.button("CARGAR 04", key="mb4", width='stretch'):
                 st.session_state.mood_texto = "Quiero algo que me mantenga en vilo. Un misterio psicológico, suspense o una trama llena de giros."
                 with st.spinner("Conectando con el Agente..."):
-                    st.session_state.mood_respuesta = database.obtener_recomendacion_agente(st.session_state.mood_texto)
+                    st.session_state.mood_respuesta = pedir_agente_mood(st.session_state.mood_texto)
                 st.rerun()
         with c5:
             if st.button("CARGAR 05", key="mb5", width='stretch'):
                 st.session_state.mood_texto = "¡ADRENALINA PURA! Quiero acción desenfrenada, efectos brutales y una peli que me mantenga pegado al asiento."
                 with st.spinner("Conectando con el Agente..."):
-                    st.session_state.mood_respuesta = database.obtener_recomendacion_agente(st.session_state.mood_texto)
+                    st.session_state.mood_respuesta = pedir_agente_mood(st.session_state.mood_texto)
                 st.rerun()
 
     # ─── BLOQUE DERECHO: INPUT Y CONSOLA ───────────────────────────
@@ -682,7 +716,7 @@ with tab3:
         if st.button("EXECUTE NEURAL SCAN & PROJECTION", width='stretch', key="matrix_final"):
             if user_input:
                 with st.spinner("Decodificando flujos de conciencia..."):
-                    respuesta_agente = database.obtener_recomendacion_agente(user_input)
+                    respuesta_agente = pedir_agente_mood(user_input)
                     st.success("Análisis Completado.")
                     st.info(respuesta_agente)
             else:
@@ -852,10 +886,15 @@ with tab4:
                 with st.spinner("Procesando discrepancias conceptuales..."):
                     try:
                         # Pasamos las variables de los inputs reales
-                        resultado_crew = database.ejecutar_negociacion(input_p1, input_p2)
-                        
+                        res = requests.post(
+                            f"{API_BASE}/api/agentes/negociacion",
+                            json={"gusto_1": input_p1, "gusto_2": input_p2},
+                            timeout=TIMEOUT_AGENTES,
+                        )
+                        res.raise_for_status()
+
                         # Convertimos a texto limpio (Markdown)
-                        st.session_state.dictamen_final = str(resultado_crew)
+                        st.session_state.dictamen_final = res.json().get("veredicto", "")
                         st.session_state.negociacion_activa = True
                         
                     except Exception as e:

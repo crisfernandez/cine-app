@@ -25,5 +25,5 @@ COPY . .
 # 7. Exponemos el puerto que usa Streamlit
 EXPOSE 8501
 
-# 8. Comando para arrancar la app
-CMD ["streamlit", "run", "interface.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# 8. Comando para arrancar la app (API Flask + Streamlit vía run.py)
+CMD ["python", "run.py"]
