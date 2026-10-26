@@ -1,32 +1,101 @@
-## Estructura del Proyecto y Descripción de Archivos
+# MovieAI Pro — Arquitectura y Descripción
 
-El proyecto está dividido en capas: la interfaz (Streamlit) habla con una API interna (Flask), que a su vez consume la lógica de negocio (`services/`) y los agentes de IA (`agents/`):
+Aplicación de recomendación de películas con interfaz web (Streamlit), API interna (Flask) y agentes de IA (CrewAI + Gemini).
+
+---
+
+## Cómo ejecutarla
+
+```bash
+pip install -r requirements.txt
+python run.py
+```
+
+Esto arranca dos procesos:
+- **API Flask** en `http://localhost:5000`
+- **Interfaz Streamlit** en `http://localhost:8501` (se abre en el navegador)
+
+Variables necesarias en `.env`:
+```
+TMDB_TOKEN=...          # API de The Movie Database (poblar BD + detalles en vivo)
+GEMINI_API_KEY=...      # API de Google Gemini (cerebro de los agentes)
+```
+
+---
+
+## Esquema de comunicación
+
+```
+Chrome (usuario)
+   │
+   ▼
+interface.py (Streamlit :8501)  — solo pinta la UI, no toca BD ni IA
+   │  HTTP (requests)
+   ▼
+app.py (Flask API :5000)        — router: recibe, valida, delega
+   │                    │
+   ▼                    ▼
+services/movies.py     agents/ (CrewAI)
+(datos, ML, TMDB)      (Gemini + tool SQL)
+   │                    │
+   ▼                    ▼
+cine.db (SQLite)  ◄── agents/tools.py (SELECT para los agentes)
+```
+
+---
+
+## Estructura del proyecto
 
 ### Interfaz y Lógica Principal
-* **`interface.py`:** El punto de entrada de la aplicación. Gestiona la interfaz gráfica interactiva con **Streamlit** y consume la API Flask interna vía HTTP (`API_BASE_URL`, por defecto `http://localhost:5000`).
-* **`app.py`:** API interna con **Flask** (puerto 5000). Expone los endpoints de películas, recomendaciones y agentes que la interfaz utiliza.
-* **`run.py`:** Lanzador único que arranca la API Flask y la interfaz Streamlit a la vez (`python run.py`).
+* **`interface.py`:** Punto de entrada. Interfaz con **Streamlit**; consume la API Flask vía HTTP (`API_BASE_URL`).
+* **`app.py`:** API interna con **Flask** (puerto 5000). Expone los endpoints de películas, recomendaciones y agentes.
+* **`run.py`:** Lanzador único que arranca Flask y Streamlit a la vez.
 
 ### Lógica de Negocio y Agentes
-* **`services/movies.py`:** Toda la lógica de películas: búsqueda en SQLite, datos de TMDB y recomendaciones con scikit-learn (ML).
+* **`services/movies.py`:** Búsqueda en SQLite, datos en vivo de TMDB y recomendaciones con scikit-learn (TF-IDF + similitud del coseno).
 * **`agents/`:** Agentes de IA con **CrewAI**:
-  * `mood.py`: agente de recomendación emocional (pestaña Mood AI).
-  * `negotiator.py`: agentes de la negociación entre dos personas (pestaña Negociador).
-  * `tools.py`: herramienta SQL que usan los agentes para consultar la base de datos.
+  * `mood.py`: agente de recomendación emocional (pestaña Mood AI). Un agente "Psicólogo Experto en Cine" con tool SQL.
+  * `negotiator.py`: 3 agentes (2 abogados + juez) en proceso secuencial (pestaña Negociador). Solo el juez usa la tool SQL.
+  * `tools.py`: herramienta `consultar_cine_db` (SELECT LIKE) que usan los agentes para consultar `cine.db`.
 
-### Gestión de Base de Datos 
-* **`setup.py`:** Script de inicialización. Se encarga de borrar versiones corruptas previas y crear la estructura limpia de la tabla `peliculas` en SQLite (`cine.db`), definiendo las columnas necesarias (título, género, sinopsis, póster, puntuación, año).
-* **`importar_pelis.py`:** Conecta de forma masiva con la API de **TMDB**, recorre múltiples páginas por género, extrae los datos principales de las películas y se conecta a la sección de créditos para obtener el director y el reparto principal. Cuenta con lógica de actualización para evitar duplicados.
+### Gestión de Base de Datos
+* **`setup.py`:** Inicialización. Borra la tabla `peliculas` si existe y la crea limpia en `cine.db`.
+* **`importar_pelis.py`:** Importación masiva desde la API de **TMDB**: recorre páginas por género, extrae datos, créditos (director y reparto) y evita duplicados.
 
-### Historial de Desarrollo (Módulo `Legacy/`)
-*Esta carpeta almacena los scripts independientes utilizados durante la fase de investigación y pruebas antes de la unificación del sistema:*
-* **`Legacy/setup.py`:** Primera versión de la estructura de la base de datos.
-* **`Legacy/notas.py`:** Script de mantenimiento utilizado para sincronizar, normalizar y redondear a un decimal las calificaciones de las películas consumiendo la API de TMDB.
-* **`Legacy/posters.py`:** Script auxiliar que añade de forma masiva los enlaces URL de los pósters oficiales de las imágenes de TMDB a los registros existentes.
-* **`Legacy/reparto.py`:** Script de migración estructural que altera la base de datos para inyectar de forma segura las columnas de `reparto` y `director`.
-* **`Legacy/app.py`:** Una API intermedia desarrollada con **Flask** para servir los datos en formato JSON. Quedó obsoleta al conectar Streamlit de forma directa y nativa a la lógica de `database.py`.
+### Historial de Desarrollo (`legacy/`)
+Scripts independientes de la fase de investigación, no se usan en la versión actual:
+* **`legacy/notas.py`:** Sincroniza y normaliza puntuaciones consumiendo TMDB.
+* **`legacy/posters.py`:** Añade masivamente URLs de pósters de TMDB a registros existentes.
+* **`legacy/reparto.py`:** Migra las columnas `reparto` y `director` a la tabla.
 
 ### Infraestructura y Despliegue
-* **`Dockerfile`:** Define la receta de construcción del contenedor de Docker (imagen base de Python, instalación de dependencias y exposición de puertos). El `CMD` ejecuta `run.py`.
-* **`docker-compose.yml`:** Gestiona el arranque automatizado de los contenedores locales para aislar el entorno de desarrollo con un solo comando.
+* **`Dockerfile`:** Imagen Python 3.11-slim; el `CMD` ejecuta `run.py`.
+* **`docker-compose.yml`:** Arranque automatizado del contenedor con un solo comando.
 
+---
+
+## Endpoints de la API (`app.py`)
+
+| Endpoint | Método | Descripción | Consumidor |
+|---|---|---|---|
+| `/api/salud` | GET | Heartbeat para `run.py` | Lanzador |
+| `/api/peliculas?termino=X` | GET | Busca por género, título, sinopsis, reparto o director | Búsqueda lateral |
+| `/api/peliculas/<id>/detalles` | GET | Director, actores y plataformas en España (TMDB en vivo) | Diálogo "Ficha Técnica" |
+| `/api/peliculas/<id>/similares` | GET | 3 películas similares (TF-IDF + coseno) | Recomendaciones ML del diálogo |
+| `/api/recomendaciones` | POST | Cartelera personalizada: `generos` + `favoritos`, SQL `RANDOM()` | Pestaña Recomendador |
+| `/api/agentes/mood` | POST | Texto → agente CrewAI → recomendación | Pestaña Mood AI |
+| `/api/agentes/negociacion` | POST | 2 gustos → 3 agentes → veredicto | Pestaña Negociador |
+
+---
+
+## APIs externas utilizadas
+
+### TMDB (The Movie Database)
+* **Poblado de la BD** (`importar_pelis.py`, script manual): trae título, género, sinopsis, puntuación, año, póster, director y reparto.
+* **En vivo** (`services/movies.py → obtener_info_extra_api`): al abrir la ficha técnica, consulta director, actores y plataformas de suscripción en España. Son 2 llamadas por apertura (créditos + watch providers).
+
+### Gemini (Google)
+* Usado por **CrewAI** como LLM (`gemini/gemini-2.5-flash`): analiza sentimientos o gustos, razona y decide cuándo usar la tool SQL. Sin esta API, Mood AI y Negociador no funcionan.
+* La clave se carga en `agents/__init__.py` (`GOOGLE_API_KEY` + `GEMINI_API_VERSION`).
+
+---
